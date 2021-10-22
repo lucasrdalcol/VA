@@ -1,5 +1,5 @@
 %% 
-clear
+clear all
 close
 
 %% 
