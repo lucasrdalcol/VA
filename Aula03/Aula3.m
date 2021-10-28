@@ -93,9 +93,6 @@ colormapValues(points.ObstaclePoints) = colors.Obstacle;
 view(lidarViewer, ptCloud.Location, colormapValues) %Atualizar o plot
 
 
-% Exercise 5
-
-
 
 
 
