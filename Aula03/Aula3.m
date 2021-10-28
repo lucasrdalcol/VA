@@ -92,6 +92,8 @@ points.ObstaclePoints = findNeighborsInRadius(ptCloudSegmented, [0 0 0], 40);
 colormapValues(points.ObstaclePoints) = colors.Obstacle;
 view(lidarViewer, ptCloud.Location, colormapValues) %Atualizar o plot
 
+% Exercise 5 in other file.
+
 
 
 
