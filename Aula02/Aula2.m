@@ -1,12 +1,14 @@
 %% 
-clear all
+clear
 close
+clc
 
-%% 
+%% Scan 2D
 load('lidarScans.mat')
 
 size(lidarScans);
 
+% Get scan number 250
 s = lidarScans(250);
 
 % Represent point cloud of the scan s using cartesian coordinates
@@ -28,7 +30,7 @@ ylabel('y')
 plot(x, y, 'or')
 
 subplot(1,2,2)
-h = s.plot
+h = s.plot;
 hold on
 plot(0, 0, '.g') % Plot origin, where is the scan
 view(0,90)
