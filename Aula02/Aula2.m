@@ -186,7 +186,6 @@ robot=[  0    0.5  0
 initialPose = [0 0 0]; %initial estimate of pose
 poseList = zeros(numScans,3); %empty list to calculate poses
 poseList(1,:) = initialPose;
-scoreList = zeros(numScans);
 
 step = 1; % step between previous scan and current scan
 
@@ -254,7 +253,7 @@ max_range = 8;
 
 % Get occupancy map
 map = occupancyMap(15,15,20);
-map.GridLocationInWorld = [-7.5 -7.5]
+map.GridLocationInWorld = [-7.5 -7.5];
 
 % Cycle the scans according to the step choosen 
 for n = step+1:numScans
@@ -275,9 +274,11 @@ for n = step+1:numScans
 end
 
 figure(5)
+show(map)
 hold on
 grid on
 fill(robot(1,:), robot(2,:), 'c');
+
 
 T = eye(3);
 for n = step+1:size(poseList,1)
@@ -290,11 +291,9 @@ for n = step+1:size(poseList,1)
     
     fill(robotf(1,:), robotf(2,:), 'c');
     title('Estimated robot trajectory')
-    axis([-2 6 -5 2]);
+    
     pause(0.01)
 end
 
+plot(poseList(:,1), poseList(:,2), 'bo', 'DisplayName', 'Estimated robot position');
 
-show(map)
-hold on
-plot(allPoses(:,1),allPoses(:,2),'bo','DisplayName','Estimated robot position');
