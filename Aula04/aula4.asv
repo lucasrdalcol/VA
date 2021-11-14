@@ -3,9 +3,7 @@ clear
 close all
 clc
 
-% Aula04 - RADAR
-
-%% Exercise 1 - Forward Collision Warning
+%% Exercise 1
 
 clear, clc, close all
 
@@ -62,7 +60,7 @@ radarRange = 30-(radarSensor.MountingLocation(1)+tgtCar.RearOverhang);
 width = tgtCar.Width;
 azSpan = rad2deg(width/radarRange);
 
-%% Exercise 2 - Measure velocity, Doppler Efect
+%% Exercise 2
 
 clear, clc, close all
 
@@ -111,7 +109,7 @@ subplot(1,2,1);
 legend('Lead car error', 'Lead car 2\sigma noise', ...
 'Pass car error', 'Pass car 2\sigma noise', 'Location', 'northwest');
 
-%% Exercise 3 - Pedestrian detection
+%% Exercise 3
 
 clear, clc, close all
 
@@ -161,7 +159,7 @@ end
 helperPlotSensorDemoDetections(metrics, 'snr', 'range', [0 160]);
 legend('Vehicle', 'Pedestrian');
 
-%% Exercise 4 - Pedestrian detection with mid-range RADAR
+%% Exercise 4
 
 clear, clc, close all
 
@@ -211,7 +209,7 @@ end
 helperPlotSensorDemoDetections(metrics, 'snr', 'range', [0 160]);
 legend('Vehicle', 'Pedestrian');
 
-%% Exercise 5 - Obstacles detection with a warning
+%% Exercise 5
 
 clear, clc, close all
 
@@ -266,7 +264,7 @@ while advance(scenario) % avançar a simulação
     end
 end
 
-%% Exercise 6 - Tracking with RADAR
+%% Exercise 6
 
 clear, clc, close all
 
@@ -294,49 +292,5 @@ tracker = trackerPHD('SensorConfigurations', sensorConfigurations,...
 'MergingThreshold',25,...
 'DeletionThreshold',1e-2,...
 'BirthRate',1e-2,...
-'HasSensorConfigurationsInput',true);
-
-% Create trackGOSPAMetric object to calculate GOSPA metric
-gospaMetric = trackGOSPAMetric('Distance','custom', ...
-'DistanceFcn',@helperGOSPADistance, ...
-'CutoffDistance',35);
-
-% Create display for visualization of results
-display = helperMultiPathTrackingDisplay;
-% Predicted track list for ghost filtering
-predictedTracks = objectTrack.empty(0,1);
-% Confusion matrix
-confMat = zeros(5,5,numel(detectionLog));
-% GOSPA metric
-gospa = zeros(4,numel(detectionLog));
-% Ground truth
-groundTruth = scenario.Actors(2:end);
-
-for i = 1:numel(detectionLog)
-    % Advance scene for visualization of ground truth
-    advance(scenario);
-    % Current time
-    time = scenario.SimulationTime;
-    % Detections and sensor configurations
-    [detections, configurations] = helperAssembleData(detectionLog{i},configurationLog{i});
-
-    % Predict confirmed tracks to current time for classifying ghosts
-    if isLocked(tracker)
-        predictedTracks = predictTracksToTime(tracker,'confirmed',time);
-    end
-
-    % Classify radar detections as targets, ghosts, or static environment
-    [targets, ghostStatic, ghostDynamic, static, reflectors, classificationInfo] = helperClassifyRadarDetections(detections, egoVehicle, predictedTracks);
-    
-    % Pass detections from target and sensor configurations to the tracker
-    confirmedTracks = tracker(targets, configurations, time);
-    % Visualize the results
-    display(egoVehicle, sensors, targets, confirmedTracks, ghostStatic, ghostDynamic, static, reflectors);
-
-    % Calculate GOSPA metric
-    [gospa(1, i),~,~,gospa(2,i),gospa(3,i),gospa(4,i)] = gospaMetric(confirmedTracks, groundTruth);
-
-    % Get true classification information and generate confusion matrix
-    trueClassificationInfo = helperTrueClassificationInfo(detections);
-    confMat(:,:,i) = helperConfusionMatrix(trueClassificationInfo, classificationInfo);
-end
+'HasSensorConfigurationsInput',true...
+);

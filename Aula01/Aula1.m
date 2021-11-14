@@ -2,6 +2,8 @@
 clear all
 clc
 
+% Aula01 - Introduction
+
 %% Save or load sensor data
 % save('sns1.mat', 'sns1');
 

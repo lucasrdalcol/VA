@@ -3,6 +3,8 @@ clear
 clc
 close all
 
+% Aula03 - LiDAR 3D
+
 %% Exercise 1
 clear, clc, close all
 % Read the Velodyne file

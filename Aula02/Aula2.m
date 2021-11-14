@@ -3,6 +3,8 @@ clear
 close
 clc
 
+% Aula02 - LiDAR 2D
+
 %% Scan 2D - Exercise 1
 load('lidarScans.mat')
 
