@@ -63,7 +63,7 @@ videoReader.CurrentTime = timeStamp;   % point to the chosen frame
 frame = readFrame(videoReader); % read frame at timeStamp seconds
 figure(1)
 imshow(frame) % display frame
-title('Current frame')
+title('C')
 
 % Using vehicle coordinates, define area to transform
 distAheadOfSensor = 30; % in meters, as previously specified in monoCamera height input
@@ -79,7 +79,6 @@ birdsEyeImage = transformImage(birdsEyeConfig, frame);
 figure(2)
 subplot(1,2,1)
 imshow(birdsEyeImage)
-title("Bird's-Eye-View")
 
 % Convert to grayscale
 birdsEyeImage = im2gray(birdsEyeImage);
@@ -94,5 +93,3 @@ birdsEyeViewBW = segmentLaneMarkerRidge(birdsEyeImage, birdsEyeConfig, approxLan
     'ROI', vehicleROI, 'Sensitivity', laneSensitivity);
 subplot(1,2,2)
 imshow(birdsEyeViewBW)
-title("Lane Detection")
-
