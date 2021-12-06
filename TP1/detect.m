@@ -1,6 +1,6 @@
 %% Assignment 1 - Autonomous Vehicles
 
-clear 
+clear
 close all
 clc
 
@@ -54,6 +54,12 @@ xlabel('X (m)')
 ylabel('Y (m)')
 hold on
 
+radarDetections = [];
+cameraCar = [];
+cameraTruck = [];
+cameraBicycle = [];
+cameraPedestrian = [];
+
 % Cycle each time sample to get each object detection
 for n = 1:numel(allData)
     objs = allData(n).ObjectDetections; % Object detections
@@ -64,6 +70,8 @@ for n = 1:numel(allData)
     TCarTrans = trvec2tform(posCar);
     TCarRot = eul2tform(orCar);
     TCar = TCarTrans * TCarRot;
+
+    partitions = partitionDetections(objs);
 
     % Cycle each object detection
     for i = 1:numel(objs)
@@ -78,6 +86,7 @@ for n = 1:numel(allData)
            TObj = TObjTrans * TObjRot;
            posWorld = TCar * TObj * [0 0 0 1]';
            plot(posWorld(1), posWorld(2), 'ro')
+           radarDetections = [radarDetections posWorld];
 
         elseif obj.SensorIndex == 2 % Camera Detection
            posObj = obj.Measurement(1:3)';
@@ -91,17 +100,164 @@ for n = 1:numel(allData)
            switch obj.ObjectClassID
                case 1 % Car
                     plot(posWorld(1), posWorld(2), 'go')
+                    cameraCar = [cameraCar posWorld(1:2)];
                case 2 % Truck
                     plot(posWorld(1), posWorld(2), 'bo')
+                    cameraTruck = [cameraTruck posWorld(1:2)];
                case 3 % Bicycle
                     plot(posWorld(1), posWorld(2), 'co')
+                    cameraBicycle = [cameraBicycle posWorld(1:2)];
                case 4 % Pedestrian
                     plot(posWorld(1), posWorld(2), 'mo')
+                    cameraPedestrian = [cameraPedestrian posWorld(1:2)];
            end
 %            legend("Car's trajectory", 'RADAR Detections', 'Camera Detection - car', 'Camera Detection - Bicycle', 'Camera Detection - pedestrian')
         end
     end
 end
+
+%% Count detections pedestrians and bicycles
+distTreshold = 1;
+numMinPoints = 2;
+
+cameraCar_copy1 = cameraCar';
+cameraBicycle_copy1 = cameraBicycle';
+cameraPedestrian_copy1 = cameraPedestrian';
+stopCars = 0;
+Peds = 0;
+Bikes = 0;
+
+% For cars - it's not working well
+for n = 1:size(cameraCar_copy1, 1)
+    ds = cameraCar_copy1 - cameraCar_copy1(n, 1:2);
+    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+ 
+    idxs = find(ds < distTreshold);
+    
+    
+    if numel(idxs) >= numMinPoints
+        cameraCar_copy1(idxs, :) = nan;
+        stopCars = stopCars + 1;
+    end
+end
+
+% For bicycles
+for n = 1:size(cameraBicycle_copy1, 1)
+    ds = cameraBicycle_copy1 - cameraBicycle_copy1(n, 1:2);
+    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+ 
+    idxs = find(ds < distTreshold);
+    
+    
+    if numel(idxs) >= numMinPoints
+        cameraBicycle_copy1(idxs, :) = nan;
+        Bikes = Bikes + 1;
+    end
+end
+
+% For Pedestrians
+for n = 1:size(cameraPedestrian_copy1, 1)
+    ds = cameraPedestrian_copy1 - cameraPedestrian_copy1(n, 1:2);
+    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+ 
+    idxs = find(ds < distTreshold);
+    
+    
+    if numel(idxs) >= numMinPoints
+        cameraPedestrian_copy1(idxs, :) = nan;
+        Peds = Peds + 1;
+    end
+end
+
+%% Lidar detections representation
+
+% Definir os limites da zona a representar
+xlimits = [-25 45]; %em metros
+ylimits = [-25 45];
+zlimits = [-20 20];
+lidarViewer = pcplayer(xlimits, ylimits, zlimits); % permite representar um stream de nuvens de pontos 3D
+
+% Definir os labels dos eixos
+xlabel(lidarViewer.Axes, 'X (m)');
+ylabel(lidarViewer.Axes, 'Y (m)');
+zlabel(lidarViewer.Axes, 'Z (m)');
+
+%Definir um colormap
+colorLabels = [0      0.4470 0.7410;
+               0.4660 0.6740 0.1880;
+               0.9290 0.6940 0.1250;
+               0.6350 0.0780 0.1840];
+
+%Indexar as cores
+colors.Unlabeled = 1; 
+colors.Ground = 2;
+colors.Ego = 3;
+colors.Obstacle = 4;
+
+vehicleDims = vehicleDimensions(); %4.7m de comprimento, 1.8m de largura, e 1.4m de altura
+
+% Car limits for segmentation
+tol = 1;
+limits = tol * [-vehicleDims.Length/2 vehicleDims.Length/2;
+                -vehicleDims.Width/2  vehicleDims.Width/2;
+                -vehicleDims.Height   0];
+
+%Aplicar o colormap ao eixo
+colormap(lidarViewer.Axes, colorLabels);
+
+minNumPoints = 50;
+
+% Cycle each time sample to get each object detection
+for n = 1:numel(allData)
+    
+    if ~isempty(allData(n).PointClouds.XLimits)
+        ptCloud = allData(n).PointClouds;   
+        
+        points = struct();
+        points.EgoPoints = ptCloud.Location(:,:,1) > limits(1,1) ...
+                           & ptCloud.Location(:,:,1) < limits(1,2) ...
+                           & ptCloud.Location(:,:,2) > limits(2,1) ...
+                           & ptCloud.Location(:,:,2) < limits(2,2) ...
+                           & ptCloud.Location(:,:,3) > limits(3,1) ...
+                           & ptCloud.Location(:,:,3) < limits(3,2);
+        
+        scanSize = size(ptCloud.Location);
+        scanSize = scanSize(1:2);
+        
+        %Criar um matriz que indique a cor a usar para cada ponto 32x1084
+        colormapValues = ones(scanSize, 'like', ptCloud.Location) * colors.Unlabeled;
+        
+        %Aplicar a cor aos EgoPoints
+        colormapValues(points.EgoPoints) = colors.Ego;
+        
+        points.GroundPoints = segmentGroundFromLidarData(ptCloud, 'ElevationAngleDelta', 0.5);
+        
+        points.GroundPoints = points.GroundPoints & ~points.EgoPoints; %Use only the points that are from the ground.
+        % To do this, exclude the points of the car that were already detected.
+        
+        %Atualizar a matriz de índices de cor
+        colormapValues(points.GroundPoints) = colors.Ground;
+        
+        % Get points without Ego and Ground points
+        nonEgoGroundPoints = ~points.EgoPoints & ~points.GroundPoints;
+        
+        % Segment original point clouds with nonEgoGroundPoints
+        ptCloudSegmented = select(ptCloud, nonEgoGroundPoints, 'Output', 'full');
+        
+        % Get a mask from origin to a distance of 40 m.
+        points.ObstaclePoints = findNeighborsInRadius(ptCloudSegmented, [0 0 0], 40);
+        
+        % Segment point cloud for each obstacle 
+        [labels, numClusters] = segmentLidarData(ptCloudSegmented, 1, 180, 'NumClusterPoints', minNumPoints);
+        
+        idxValidPoints = find(labels);
+        labelColorIndex = labels(idxValidPoints);
+        segmentedPtCloud = select(ptCloudSegmented, idxValidPoints);
+        
+        view(lidarViewer, segmentedPtCloud.Location, labelColorIndex) %Apresentar o plot
+    end
+end
+
 
 
 
