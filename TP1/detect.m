@@ -45,11 +45,11 @@ end
 
 % Plot the car's trajectory map
 figure(2)
-plot(PP(:,1), PP(:,2), 'LineWidth', 5)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
 view(-90, 90)
 grid on
 axis equal
-title("Map of the Car's trajectory")
+title("Map of the Car's trajectory and all detections")
 xlabel('X (m)')
 ylabel('Y (m)')
 hold on
@@ -71,8 +71,6 @@ for n = 1:numel(allData)
     TCarRot = eul2tform(orCar);
     TCar = TCarTrans * TCarRot;
 
-    partitions = partitionDetections(objs);
-
     % Cycle each object detection
     for i = 1:numel(objs)
         obj = objs{i, 1};
@@ -86,7 +84,7 @@ for n = 1:numel(allData)
            TObj = TObjTrans * TObjRot;
            posWorld = TCar * TObj * [0 0 0 1]';
            plot(posWorld(1), posWorld(2), 'ro')
-           radarDetections = [radarDetections posWorld];
+           radarDetections = [radarDetections posWorld(1:2)];
 
         elseif obj.SensorIndex == 2 % Camera Detection
            posObj = obj.Measurement(1:3)';
@@ -116,58 +114,181 @@ for n = 1:numel(allData)
     end
 end
 
-%% Count detections pedestrians and bicycles
-distTreshold = 1;
-numMinPoints = 2;
+radarDetections = radarDetections';
+cameraCar = cameraCar';
+cameraTruck = cameraTruck';
+cameraBicycle = cameraBicycle';
+cameraPedestrian = cameraPedestrian';
 
-cameraCar_copy1 = cameraCar';
-cameraBicycle_copy1 = cameraBicycle';
-cameraPedestrian_copy1 = cameraPedestrian';
+% Draw detections separately
+
+% For RADAR Detections
+figure(3)
+subplot(2,3,1)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and RADAR Detections")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+plot(radarDetections(:, 1), radarDetections(:, 2), 'ro')
+% legend("Car's trajectory", 'RADAR Detections')
+
+% For Camera detections - Cars
+subplot(2,2,2)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and Camera Detections - cars")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+if ~isempty(cameraCar)
+    plot(cameraCar(:, 1), cameraCar(:, 2), 'go')
+%     legend("Car's trajectory", 'Camera detections - cars')
+end
+
+% For Camera detections - Bicycles
+subplot(2,2,3)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and Camera Detections - bicycles")
+xlabel('X (m)')
+ylabel('Y (m)')
+    hold on
+if ~isempty(cameraBicycle)
+    plot(cameraBicycle(:, 1), cameraBicycle(:, 2), 'co')
+%     legend("Car's trajectory", 'Camera detections - bicycles')
+end
+
+% For Camera detections - Pedestrians
+subplot(2,2,4)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and Camera Detections - pedestrians")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+if ~isempty(cameraPedestrian)
+    plot(cameraPedestrian(:, 1), cameraPedestrian(:, 2), 'mo')
+    %     legend("Car's trajectory", 'Camera detections - pedestrians')
+end
+
+
+%% Count detections pedestrians and bicycles
+% Start variables of threshold and minimum number of detections to be a object.
+distTreshCar = 2.0;
+distTreshTruck = 1.0; % Need to be improved
+distTreshBicycle = 1.0;
+distTreshPedestrian = 1.0;
+numMinDetections = 4;
+
+% Start counters 
 stopCars = 0;
 Peds = 0;
 Bikes = 0;
+countCar = true;
+countBicycle = true;
+countPedestrian = true;
 
-% For cars - it's not working well
-for n = 1:size(cameraCar_copy1, 1)
-    ds = cameraCar_copy1 - cameraCar_copy1(n, 1:2);
-    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
- 
-    idxs = find(ds < distTreshold);
-    
-    
-    if numel(idxs) >= numMinPoints
-        cameraCar_copy1(idxs, :) = nan;
-        stopCars = stopCars + 1;
+% Sort the detections because we can detect more than two cars at the same
+% time for example
+% Cars
+if ~isempty(cameraCar)
+    [~,idx] = sort(cameraCar(:,1)); % sort just the first column 
+    sorted_cameraCar = cameraCar(idx,:); % reorganize the array of coordinates
+end
+
+% Bicycles
+if ~isempty(cameraBicycle)
+    [~,idx] = sort(cameraBicycle(:,1));
+    sorted_cameraBicycle = cameraBicycle(idx,:);
+end
+
+% Pedestrians
+if ~isempty(cameraPedestrian)
+    [~,idx] = sort(cameraPedestrian(:,1)); % sort just the first column
+    sorted_cameraPedestrian = cameraPedestrian(idx,:);
+end
+
+% Count the number of stopped cars
+if ~isempty(cameraCar)
+
+    % Cycle all car detections
+    for n = 1:size(sorted_cameraCar, 1)
+
+        % If the variable to count is true, compute the eucledian distance between
+        % that detection and all others
+        if countCar == true
+            ds = sorted_cameraCar - sorted_cameraCar(n, 1:2);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+            
+            % Get the indexes of those distances that are below a threshold
+            % specified to that object
+            idxs = find(ds < distTreshCar);
+            
+            % The joint detections should be more than a specified minimum
+            % number of detections to be classified as a object
+            if numel(idxs) >= numMinDetections
+                stopCars = stopCars + 1;
+                countCar = false;
+            end
+
+        % After the detections of that object are over, start to compute everything again
+        elseif n == idxs(end)
+            countCar = true;
+        end
     end
 end
 
-% For bicycles
-for n = 1:size(cameraBicycle_copy1, 1)
-    ds = cameraBicycle_copy1 - cameraBicycle_copy1(n, 1:2);
-    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
- 
-    idxs = find(ds < distTreshold);
-    
-    
-    if numel(idxs) >= numMinPoints
-        cameraBicycle_copy1(idxs, :) = nan;
-        Bikes = Bikes + 1;
+% Same pipeline for Bycicles and Pedestrians, just changing the distance
+% threshold for each one.
+
+% Count the number of Bicycles
+if ~isempty(cameraBicycle)
+    for n = 1:size(sorted_cameraBicycle, 1)
+        if countBicycle == true
+            ds = sorted_cameraBicycle - sorted_cameraBicycle(n, 1:2);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        
+            idxs = find(ds < distTreshBicycle);
+             
+            if numel(idxs) >= numMinDetections
+                Bikes = Bikes + 1;
+                countBicycle = false;
+            end
+        elseif n == idxs(end)
+            countBicycle = true;
+        end
     end
 end
 
-% For Pedestrians
-for n = 1:size(cameraPedestrian_copy1, 1)
-    ds = cameraPedestrian_copy1 - cameraPedestrian_copy1(n, 1:2);
-    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
- 
-    idxs = find(ds < distTreshold);
-    
-    
-    if numel(idxs) >= numMinPoints
-        cameraPedestrian_copy1(idxs, :) = nan;
-        Peds = Peds + 1;
+% Count the number of pedestrians
+if ~isempty(cameraPedestrian)
+    for n = 1:size(sorted_cameraPedestrian, 1)
+        if countPedestrian == true
+            ds = sorted_cameraPedestrian - sorted_cameraPedestrian(n, 1:2);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        
+            idxs = find(ds < distTreshPedestrian);
+             
+            if numel(idxs) >= numMinDetections
+                Peds = Peds + 1;
+                countPedestrian = false;
+            end
+        elseif n == idxs(end)
+            countPedestrian = true;
+        end
     end
 end
+
 
 %% Lidar detections representation
 
@@ -254,6 +375,7 @@ for n = 1:numel(allData)
         labelColorIndex = labels(idxValidPoints);
         segmentedPtCloud = select(ptCloudSegmented, idxValidPoints);
         
+        figure(4)
         view(lidarViewer, segmentedPtCloud.Location, labelColorIndex) %Apresentar o plot
     end
 end

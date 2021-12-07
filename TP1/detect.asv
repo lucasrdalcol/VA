@@ -1,6 +1,6 @@
 %% Assignment 1 - Autonomous Vehicles
 
-clear 
+clear
 close all
 clc
 
@@ -45,11 +45,11 @@ end
 
 % Plot the car's trajectory map
 figure(2)
-plot(PP(:,1), PP(:,2), 'LineWidth', 5)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
 view(-90, 90)
 grid on
 axis equal
-title("Map of the Car's trajectory")
+title("Map of the Car's trajectory and all detections")
 xlabel('X (m)')
 ylabel('Y (m)')
 hold on
@@ -84,7 +84,7 @@ for n = 1:numel(allData)
            TObj = TObjTrans * TObjRot;
            posWorld = TCar * TObj * [0 0 0 1]';
            plot(posWorld(1), posWorld(2), 'ro')
-           radarDetections = [radarDetections posWorld];
+           radarDetections = [radarDetections posWorld(1:2)];
 
         elseif obj.SensorIndex == 2 % Camera Detection
            posObj = obj.Measurement(1:3)';
@@ -114,182 +114,173 @@ for n = 1:numel(allData)
     end
 end
 
-%% Count detections pedestrians and bicycles
-distTreshold = 1;
-numMinPoints = 2;
+radarDetections = radarDetections';
+cameraCar = cameraCar';
+cameraTruck = cameraTruck';
+cameraBicycle = cameraBicycle';
+cameraPedestrian = cameraPedestrian';
 
-cameraCar_copy1 = cameraCar';
-cameraBicycle_copy1 = cameraBicycle';
-cameraPedestrian_copy1 = cameraPedestrian';
+% Draw detections separately
+
+% For RADAR Detections
+figure(3)
+subplot(2,3,1)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and RADAR Detections")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+plot(radarDetections(:, 1), radarDetections(:, 2), 'ro')
+% legend("Car's trajectory", 'RADAR Detections')
+
+% For Camera detections - Cars
+subplot(2,2,2)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and Camera Detections - cars")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+if ~isempty(cameraCar)
+    plot(cameraCar(:, 1), cameraCar(:, 2), 'go')
+%     legend("Car's trajectory", 'Camera detections - cars')
+end
+
+% For Camera detections - Bicycles
+subplot(2,2,3)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and Camera Detections - bicycles")
+xlabel('X (m)')
+ylabel('Y (m)')
+    hold on
+if ~isempty(cameraBicycle)
+    plot(cameraBicycle(:, 1), cameraBicycle(:, 2), 'co')
+%     legend("Car's trajectory", 'Camera detections - bicycles')
+end
+
+% For Camera detections - Pedestrians
+subplot(2,2,4)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and Camera Detections - pedestrians")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+if ~isempty(cameraPedestrian)
+    plot(cameraPedestrian(:, 1), cameraPedestrian(:, 2), 'mo')
+    %     legend("Car's trajectory", 'Camera detections - pedestrians')
+end
+
+
+%% Count detections pedestrians and bicycles
+% Start variables of threshold and minimum number of detections to be a object.
+distTreshCar = 2.0;
+distTreshTruck = 1.0; % Need to be improved
+distTreshBicycle = 1.0;
+distTreshPedestrian = 1.0;
+numMinDetections = 4;
+
+% Start counters 
 stopCars = 0;
 Peds = 0;
 Bikes = 0;
+countCar = true;
+countBicycle = true;
+countPedestrian = true;
 
-% For cars - it's not working well
-for n = 1:size(cameraCar_copy1, 1)
-    ds = cameraCar_copy1 - cameraCar_copy1(n, 1:2);
-    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
- 
-    idxs = find(ds < distTreshold);
-    
-    
-    if numel(idxs) >= numMinPoints
-        cameraCar_copy1(idxs, :) = nan;
-        stopCars = stopCars + 1;
+% Sort the detections because we can detect more than two cars at the same
+% time for example
+% Cars
+if ~isempty(cameraCar)
+    [~,idx] = sort(cameraCar(:,1)); % sort just the first column 
+    sorted_cameraCar = cameraCar(idx,:); % reorganize the array of coordinates
+end
+
+% Bicycles
+if ~isempty(cameraBicycle)
+    [~,idx] = sort(cameraBicycle(:,1));
+    sorted_cameraBicycle = cameraBicycle(idx,:);
+end
+
+% Pedestrians
+if ~isempty(cameraPedestrian)
+    [~,idx] = sort(cameraPedestrian(:,1)); % sort just the first column
+    sorted_cameraPedestrian = cameraPedestrian(idx,:);
+end
+
+% Count the number of stopped cars
+if ~isempty(cameraCar)
+
+    % Cycle all car detections
+    for n = 1:size(sorted_cameraCar, 1)
+
+        % If the variable to count is true, compute the eucledian distance between
+        % that detection and all others
+        if countCar == true
+            ds = sorted_cameraCar - sorted_cameraCar(n, 1:2);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+            
+            % Get the indexes of those 
+            idxs = find(ds < distTreshCar);
+             
+            if numel(idxs) >= numMinDetections
+                stopCars = stopCars + 1;
+                countCar = false;
+            end
+        elseif n == idxs(end)
+            countCar = true;
+        end
     end
 end
 
-% For bicycles
-for n = 1:size(cameraBicycle_copy1, 1)
-    ds = cameraBicycle_copy1 - cameraBicycle_copy1(n, 1:2);
-    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
- 
-    idxs = find(ds < distTreshold);
-    
-    
-    if numel(idxs) >= numMinPoints
-        cameraBicycle_copy1(idxs, :) = nan;
-        Bikes = Bikes + 1;
+% Count the number of Bicycles
+if ~isempty(cameraBicycle)
+    for n = 1:size(sorted_cameraBicycle, 1)
+        if countBicycle == true
+            ds = sorted_cameraBicycle - sorted_cameraBicycle(n, 1:2);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        
+            idxs = find(ds < distTreshBicycle);
+             
+            if numel(idxs) >= numMinDetections
+                Bikes = Bikes + 1;
+                countBicycle = false;
+            end
+        elseif n == idxs(end)
+            countBicycle = true;
+        end
     end
 end
 
-% For Pedestrians
-for n = 1:size(cameraPedestrian_copy1, 1)
-    ds = cameraPedestrian_copy1 - cameraPedestrian_copy1(n, 1:2);
-    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
- 
-    idxs = find(ds < distTreshold);
-    
-    
-    if numel(idxs) >= numMinPoints
-        cameraPedestrian_copy1(idxs, :) = nan;
-        Peds = Peds + 1;
+% Count the number of pedestrians
+if ~isempty(cameraPedestrian)
+    for n = 1:size(sorted_cameraPedestrian, 1)
+        if countPedestrian == true
+            ds = sorted_cameraPedestrian - sorted_cameraPedestrian(n, 1:2);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        
+            idxs = find(ds < distTreshPedestrian);
+             
+            if numel(idxs) >= numMinDetections
+                Peds = Peds + 1;
+                countPedestrian = false;
+            end
+        elseif n == idxs(end)
+            countPedestrian = true;
+        end
     end
 end
 
-%% Using tracking from mathworks - https://www.mathworks.com/help/fusion/ug/extended-object-tracking.html
-
-exPath = fullfile(matlabroot,'examples','driving_fusion','main');
-addpath(exPath)
-[scenario, egoVehicle, sensors] = helperCreateScenario;
-
-% Create the display object
-display = helperExtendedTargetTrackingDisplay;
-
-% Create the Animation writer to record each frame of the figure for
-% animation writing. Set 'RecordGIF' to true to enable GIF writing.
-gifWriter = helperGIFWriter('Figure',display.Figure,...
-    'RecordGIF',false);
-
-% Function to return the errors given track and truth.
-errorFcn = @(track,truth)helperExtendedTargetError(track,truth);
-
-% Function to return the distance between track and truth.
-distFcn = @(track,truth)helperExtendedTargetDistance(track,truth);
-
-% Function to return the IDs from the ground truth. The default
-% identifier assumes that the truth is identified with PlatformID. In
-% drivingScenario, truth is identified with an ActorID.
-truthIdFcn = @(x)[x.ActorID];
-
-% Create metrics object.
-tem = trackErrorMetrics(...
-    'ErrorFunctionFormat','custom',...
-    'EstimationErrorLabels',{'PositionError','VelocityError','DimensionsError','YawError'},...
-    'EstimationErrorFcn',errorFcn,...
-    'TruthIdentifierFcn',truthIdFcn);
-
-tam = trackAssignmentMetrics(...
-    'DistanceFunctionFormat','custom',...
-    'AssignmentDistanceFcn',distFcn,...
-    'DivergenceDistanceFcn',distFcn,...
-    'TruthIdentifierFcn',truthIdFcn,...
-    'AssignmentThreshold',30,...
-    'DivergenceThreshold',35);
-
-% Create ospa metric object.
-tom = trackOSPAMetric(...
-    'Distance','custom',...
-    'DistanceFcn',distFcn,...
-    'TruthIdentifierFcn',truthIdFcn);
-
-trackerRunTimes = zeros(0,3);
-ospaMetric = zeros(0,3);
-
-% Create a multiObjectTracker
-tracker = multiObjectTracker(...
-    'FilterInitializationFcn', @helperInitPointFilter, ...
-    'AssignmentThreshold', 30, ...
-    'ConfirmationThreshold', [4 5], ...
-    'DeletionThreshold', 3);
-
-% Reset the random number generator for repeatable results
-seed = 2018;
-S = rng(seed);
-timeStep = 1;
-
-% For multiObjectTracker, the radar reports in Ego Cartesian frame and does
-% not report velocity. This allows us to cluster detections from multiple
-% sensors.
-
-sensors{1}.HasRangeRate = false;
-sensors{1}.DetectionCoordinates = 'Body';
-
-
-while advance(scenario) && ishghandle(display.Figure)
-    % Get the scenario time
-    time = scenario.SimulationTime;
-
-    % Collect detections from the ego vehicle sensors
-    [detections,isValidTime] = helperDetect(sensors, egoVehicle, time);
-
-    % Update the tracker if there are new detections
-    if any(isValidTime)
-        % Detections must be clustered first for the point tracker
-        detectionClusters = helperClusterRadarDetections(detections);
-
-        % Update the tracker
-        tic
-        % confirmedTracks are in scenario coordinates
-        confirmedTracks = updateTracks(tracker, detectionClusters, time);
-        t = toc;
-
-        % Update the metrics
-        % a. Obtain ground truth
-        groundTruth = scenario.Actors(2:end); % All except Ego
-
-        % b. Update assignment metrics
-        tam(confirmedTracks,groundTruth);
-        [trackIDs,truthIDs] = currentAssignment(tam);
-
-        % c. Update error metrics
-        tem(confirmedTracks,trackIDs,groundTruth,truthIDs);
-
-        % d. Update ospa metric
-        ospaMetric(timeStep,1) = tom(confirmedTracks, groundTruth);
-
-        % Update bird's-eye-plot
-        % Convert tracks to ego coordinates for display
-        confirmedTracksEgo = helperConvertToEgoCoordinates(egoVehicle, confirmedTracks);
-        display(egoVehicle, sensors, detections, confirmedTracksEgo, detectionClusters);
-        drawnow;
-
-        % Record tracker run times
-        trackerRunTimes(timeStep,1) = t;
-        timeStep = timeStep + 1;
-
-        % Capture frames for animation
-        gifWriter();
-    end
-end
-
-% Capture the cumulative track metrics. The error metrics show the averaged
-% value of the error over the simulation.
-assignmentMetricsMOT = tam.trackMetricsTable;
-errorMetricsMOT = tem.cumulativeTruthMetrics;
-
-% Write GIF if requested
-writeAnimation(gifWriter,'multiObjectTracking');
 
 %% Lidar detections representation
 
@@ -376,6 +367,7 @@ for n = 1:numel(allData)
         labelColorIndex = labels(idxValidPoints);
         segmentedPtCloud = select(ptCloudSegmented, idxValidPoints);
         
+        figure(4)
         view(lidarViewer, segmentedPtCloud.Location, labelColorIndex) %Apresentar o plot
     end
 end
