@@ -448,22 +448,22 @@ ylabel('Y (m)')
 hold on
 plot(barriers_radarDetections(:, 1), barriers_radarDetections(:, 2), 'ro')
 
-if ~isempty(barriers_radarDetections)
-    % Cycle all camera Detections
-    firstBarrier_pos = [barriers_radarDetections(1, :)];
-    for n = 2:size(barriers_radarDetections, 1)
-        ds = barriers_radarDetections(n, :) - barriers_radarDetections(n-1, :);
-        ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+% if ~isempty(barriers_radarDetections)
+%     % Cycle all camera Detections
+%     firstBarrier_pos = [barriers_radarDetections(1, :)];
+%     for n = 2:size(barriers_radarDetections, 1)
+%         ds = barriers_radarDetections(n, :) - barriers_radarDetections(n-1, :);
+%         ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+% 
+%         if ds < distTreshBarrier
+%             firstBarrier_pos = [firstBarrier_pos; barriers_radarDetections(n, :)];
+%         else
+%             break
+%         end
+%     end
+% end
 
-        if ds < distTreshBarrier
-            firstBarrier_pos = [firstBarrier_pos; barriers_radarDetections(n, :)];
-        else
-            break
-        end
-    end
-end
-
-beginningFirstBarrier = firstBarrier_pos(1, :);
+beginningFirstBarrier = barriers_radarDetections(1, :);
 ds = PP(:, 1:2) - beginningFirstBarrier;
 ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
 
@@ -473,6 +473,18 @@ LBarrFirst = 0;
 for n = 2:idx_pos
     ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
     LBarrFirst = LBarrFirst + ds;
+end
+
+endingLastBarrier = barriers_radarDetections(end, :);
+ds = PP(:, 1:2) - endingLastBarrier;
+ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+
+[minDs idx_pos] = min(ds);
+
+LBarrLast = 0;
+for n = 2:idx_pos
+    ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
+    LBarrLast = LBarrLast + ds;
 end
 
 %% Lidar detections representation
