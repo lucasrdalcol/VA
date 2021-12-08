@@ -55,6 +55,7 @@ ylabel('Y (m)')
 hold on
 
 radarDetections = [];
+cameraDetections = [];
 cameraCar = [];
 cameraTruck = [];
 cameraBicycle = [];
@@ -93,6 +94,7 @@ for n = 1:numel(allData)
            TObjRot = eul2tform(orObj);
            TObj = TObjTrans * TObjRot;
            posWorld = TCar * TObj * [0 0 0 1]';
+           cameraDetections = [cameraDetections posWorld(1:2)];
            
            % Plot according to the classification
            switch obj.ObjectClassID
@@ -115,6 +117,7 @@ for n = 1:numel(allData)
 end
 
 radarDetections = radarDetections';
+cameraDetections = cameraDetections';
 cameraCar = cameraCar';
 cameraTruck = cameraTruck';
 cameraBicycle = cameraBicycle';
@@ -185,21 +188,23 @@ end
 %% Count detections pedestrians and bicycles
 % Start variables of threshold and minimum number of detections to be a object.
 distTreshCar = 2.0;
-distTreshTruck = 1.0; % Need to be improved
 distTreshBicycle = 1.0;
 distTreshPedestrian = 1.0;
 numMinDetections = 4;
+detectedStopCars = {};
+detectedBicyles = {};
+detectedPedestrians = {};
 
 % Start counters 
 stopCars = 0;
 Peds = 0;
 Bikes = 0;
-countCar = true;
+countStopCar = true;
 countBicycle = true;
 countPedestrian = true;
 
 % Sort the detections because we can detect more than two cars at the same
-% time for example
+% time for example. So we can join the detections by position.
 % Cars
 if ~isempty(cameraCar)
     [~,idx] = sort(cameraCar(:,1)); % sort just the first column 
@@ -214,7 +219,7 @@ end
 
 % Pedestrians
 if ~isempty(cameraPedestrian)
-    [~,idx] = sort(cameraPedestrian(:,1)); % sort just the first column
+    [~,idx] = sort(cameraPedestrian(:,1));
     sorted_cameraPedestrian = cameraPedestrian(idx,:);
 end
 
@@ -226,22 +231,31 @@ if ~isempty(cameraCar)
 
         % If the variable to count is true, compute the eucledian distance between
         % that detection and all others
-        if countCar == true
+        if countStopCar == true
             ds = sorted_cameraCar - sorted_cameraCar(n, 1:2);
             ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
             
-            % Get the indexes of those 
+            % Get the indexes of those distances that are below a threshold
+            % specified to that object
             idxs = find(ds < distTreshCar);
-             
+            
+            % The joint detections should be more than a specified minimum
+            % number of detections to be classified as a object
             if numel(idxs) >= numMinDetections
                 stopCars = stopCars + 1;
-                countCar = false;
+                detectedStopCars{stopCars} = sorted_cameraCar(idxs, :);
+                countStopCar = false;
             end
+
+        % After the detections of that object are over, start to compute everything again
         elseif n == idxs(end)
-            countCar = true;
+            countStopCar = true;
         end
     end
 end
+
+% Same pipeline for Bycicles and Pedestrians, just changing the distance
+% threshold for each one.
 
 % Count the number of Bicycles
 if ~isempty(cameraBicycle)
@@ -254,6 +268,7 @@ if ~isempty(cameraBicycle)
              
             if numel(idxs) >= numMinDetections
                 Bikes = Bikes + 1;
+                detectedBicyles{Bikes} = sorted_cameraBicycle(idxs, :);
                 countBicycle = false;
             end
         elseif n == idxs(end)
@@ -273,6 +288,7 @@ if ~isempty(cameraPedestrian)
              
             if numel(idxs) >= numMinDetections
                 Peds = Peds + 1;
+                detectedPedestrians{Peds} = sorted_cameraPedestrian(idxs, :);
                 countPedestrian = false;
             end
         elseif n == idxs(end)
@@ -281,6 +297,144 @@ if ~isempty(cameraPedestrian)
     end
 end
 
+%% Get the linear distance traveled by the ego car when detecting the first objects
+
+
+% Get the mean of the car and pedestrian detections to represent the object
+meanCars = {};
+meanPedestrians = {};
+firstCar_pos = inf;
+firstPedestrian_pos = inf;
+
+% For the first stopped car detected
+for n = 1:size(detectedStopCars, 2)
+    meanCars{n} = mean(detectedStopCars{n});
+
+    ds = PP(:, 1:2) - meanCars{n};
+    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+
+    [minDs idx_pos] = min(ds);
+    
+    if idx_pos < firstCar_pos
+        firstCar_pos = idx_pos;
+    end
+end
+
+LStopCar1 = 0;
+for n = 2:firstCar_pos
+    ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
+    LStopCar1 = LStopCar1 + ds;
+end
+
+
+% For the first pedestrian detected
+for n = 1:size(detectedPedestrians, 2)
+    meanPedestrians{n} = mean(detectedPedestrians{n});
+
+    ds = PP(:, 1:2) - meanPedestrians{n};
+    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+
+    [minDs idx_pos] = min(ds);
+    
+    if idx_pos < firstPedestrian_pos
+        firstPedestrian_pos = idx_pos;
+    end
+end
+
+Lped1 = 0;
+for n = 2:firstPedestrian_pos
+    ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
+    Lped1 = Lped1 + ds;
+end
+
+%% Recognize barriers in RADAR Detections
+
+% Start variables of threshold and minimum number of detections to be a object.
+distTreshBarrier = 2.0;
+distTreshBicycle = 1.5;
+distTreshCar = 3;
+numMinDetections = 4;
+detectedBarriers = {};
+
+% Start counters 
+barriers = 0;
+countBarriers = true;
+excludeBicycles = true;
+excludeCars = true;
+
+% Sort the detections because we can detect more than two cars at the same
+% time for example. So we can join the detections by position.
+% RADAR Detections
+if ~isempty(radarDetections)
+    [~,idx] = sort(radarDetections(:,1)); % sort just the first column 
+    sorted_radarDetections = radarDetections(idx,:); % reorganize the array of coordinates
+end
+
+if ~isempty(cameraDetections)
+    [~,idx] = sort(cameraDetections(:,1)); % sort just the first column 
+    sorted_cameraDetections = cameraDetections(idx,:); % reorganize the array of coordinates
+end
+
+if ~isempty(cameraBicycle)
+    [~,idx] = sort(cameraBicycle(:,1)); % sort just the first column 
+    sorted_cameraBicycle = cameraBicycle(idx,:); % reorganize the array of coordinates
+end
+
+filtered_sorted_radarDetections = sorted_radarDetections;
+
+% Filter the RADAR detections to have only the Barriers
+if ~isempty(cameraCar)
+    % Cycle all camera Detections
+    if excludeCars == true
+        for i = 1:size(detectedStopCars, 2)
+            for n = 1:size(detectedStopCars{i}, 1)
+                ds = filtered_sorted_radarDetections - detectedStopCars{i}(n, :);
+                ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        
+                idxs = find(ds < distTreshCar);
+                
+                if numel(idxs) >= numMinDetections
+                    filtered_sorted_radarDetections(idxs, :) = [];
+                    excludeCars = false;
+                end
+            end
+        end
+    elseif n == idxs(end)
+           excludeCars = true;
+    end
+end
+
+figure(5)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and RADAR Detections")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+plot(filtered_sorted_radarDetections(:, 1), filtered_sorted_radarDetections(:, 2), 'ro')
+
+if ~isempty(cameraBicycle)
+    % Cycle all camera Detections
+    if excludeBicycles == true
+        for i = 1:size(detectedBicyles, 2)
+            for n = 1:size(sorted_cameraBicycle, 1)
+                ds = filtered_sorted_radarDetections - sorted_cameraBicycle(n, :);
+                ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        
+                idxs = find(ds < distTreshBicycle);
+                
+                if numel(idxs) >= numMinDetections
+                    filtered_sorted_radarDetections(idxs, :) = [];
+                    excludeBicycles = false;
+                end
+            end
+        end
+    elseif n == idxs(end)
+           excludeBicycles = true;
+    end
+end
 
 %% Lidar detections representation
 
