@@ -350,37 +350,28 @@ end
 %% Recognize barriers in RADAR Detections
 
 % Start variables of threshold and minimum number of detections to be a object.
-distTreshBarrier = 2.0;
+distTreshBarrier = 20;
 distTreshBicycle = 1.5;
 distTreshCar = 3;
+distTreshPedestrian = 1;
 numMinDetections = 4;
-detectedBarriers = {};
 
 % Start counters 
 barriers = 0;
 countBarriers = true;
 excludeBicycles = true;
 excludeCars = true;
+excludePedestrians = true;
 
 % Sort the detections because we can detect more than two cars at the same
 % time for example. So we can join the detections by position.
 % RADAR Detections
-if ~isempty(radarDetections)
-    [~,idx] = sort(radarDetections(:,1)); % sort just the first column 
-    sorted_radarDetections = radarDetections(idx,:); % reorganize the array of coordinates
-end
+% if ~isempty(radarDetections)
+%     [~,idx] = sort(radarDetections(:,1)); % sort just the first column 
+%     sorted_radarDetections = radarDetections(idx,:); % reorganize the array of coordinates
+% end
 
-if ~isempty(cameraDetections)
-    [~,idx] = sort(cameraDetections(:,1)); % sort just the first column 
-    sorted_cameraDetections = cameraDetections(idx,:); % reorganize the array of coordinates
-end
-
-if ~isempty(cameraBicycle)
-    [~,idx] = sort(cameraBicycle(:,1)); % sort just the first column 
-    sorted_cameraBicycle = cameraBicycle(idx,:); % reorganize the array of coordinates
-end
-
-filtered_sorted_radarDetections = sorted_radarDetections;
+barriers_radarDetections = radarDetections;
 
 % Filter the RADAR detections to have only the Barriers
 if ~isempty(cameraCar)
@@ -388,13 +379,13 @@ if ~isempty(cameraCar)
     if excludeCars == true
         for i = 1:size(detectedStopCars, 2)
             for n = 1:size(detectedStopCars{i}, 1)
-                ds = filtered_sorted_radarDetections - detectedStopCars{i}(n, :);
+                ds = barriers_radarDetections - detectedStopCars{i}(n, :);
                 ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
         
                 idxs = find(ds < distTreshCar);
                 
                 if numel(idxs) >= numMinDetections
-                    filtered_sorted_radarDetections(idxs, :) = [];
+                    barriers_radarDetections(idxs, :) = [];
                     excludeCars = false;
                 end
             end
@@ -404,29 +395,18 @@ if ~isempty(cameraCar)
     end
 end
 
-figure(5)
-plot(PP(:,1), PP(:,2), 'LineWidth', 3)
-view(-90, 90)
-grid on
-axis equal
-title("Map of the Car's trajectory and RADAR Detections")
-xlabel('X (m)')
-ylabel('Y (m)')
-hold on
-plot(filtered_sorted_radarDetections(:, 1), filtered_sorted_radarDetections(:, 2), 'ro')
-
 if ~isempty(cameraBicycle)
     % Cycle all camera Detections
     if excludeBicycles == true
         for i = 1:size(detectedBicyles, 2)
-            for n = 1:size(sorted_cameraBicycle, 1)
-                ds = filtered_sorted_radarDetections - sorted_cameraBicycle(n, :);
+            for n = 1:size(detectedBicyles{i}, 1)
+                ds = barriers_radarDetections - detectedBicyles{i}(n, :);
                 ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
         
                 idxs = find(ds < distTreshBicycle);
                 
                 if numel(idxs) >= numMinDetections
-                    filtered_sorted_radarDetections(idxs, :) = [];
+                    barriers_radarDetections(idxs, :) = [];
                     excludeBicycles = false;
                 end
             end
@@ -434,6 +414,66 @@ if ~isempty(cameraBicycle)
     elseif n == idxs(end)
            excludeBicycles = true;
     end
+end
+
+if ~isempty(cameraPedestrian)
+    % Cycle all camera Detections
+    if excludePedestrians == true
+        for i = 1:size(detectedPedestrians, 2)
+            for n = 1:size(detectedPedestrians{i}, 1)
+                ds = barriers_radarDetections - detectedPedestrians{i}(n, :);
+                ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        
+                idxs = find(ds < distTreshPedestrian);
+                
+                if numel(idxs) >= numMinDetections
+                    barriers_radarDetections(idxs, :) = [];
+                    excludePedestrians = false;
+                end
+            end
+        end
+    elseif n == idxs(end)
+           excludePedestrians = true;
+    end
+end
+
+figure(5)
+plot(PP(:,1), PP(:,2), 'LineWidth', 3)
+view(-90, 90)
+grid on
+axis equal
+title("Map of the Car's trajectory and RADAR Barrier Detections")
+xlabel('X (m)')
+ylabel('Y (m)')
+hold on
+plot(barriers_radarDetections(:, 1), barriers_radarDetections(:, 2), 'ro')
+
+if ~isempty(barriers_radarDetections)
+    % Cycle all camera Detections
+    firstBarrier_pos = [barriers_radarDetections(1, :)];
+    for n = 2:size(barriers_radarDetections, 1)
+        ds = barriers_radarDetections(n, :) - barriers_radarDetections(n-1, :);
+        ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+        disp(ds)
+
+        if ds < distTreshBarrier
+            firstBarrier_pos = [firstBarrier_pos; barriers_radarDetections(n, :)];
+        else
+            break
+        end
+    end
+end
+
+beginningFirstBarrier = firstBarrier_pos(1, :);
+ds = PP(:, 1:2) - beginningFirstBarrier;
+ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+
+[minDs idx_pos] = min(ds);
+
+LBarrFirst = 0;
+for n = 2:idx_pos
+    ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
+    LBarrFirst = LBarrFirst + ds;
 end
 
 %% Lidar detections representation
