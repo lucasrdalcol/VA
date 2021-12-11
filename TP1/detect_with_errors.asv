@@ -1,12 +1,12 @@
 %% Assignment 1 - Autonomous Vehicles
 
-% clearvars -except allData scenario sensors
-clear
+clearvars -except allData scenario sensors
+% clear
 close all
 clc
 
 % Load data from scenario
-[allData, scenario, sensors] = scenario();
+% [allData, scenario, sensors] = scenario_with_errors();
 
 
 %% Use INS sensor to get position and velocities
@@ -189,10 +189,12 @@ end
 
 %% Count detections pedestrians and bicycles
 % Start variables of threshold and minimum number of detections to be a object.
-distTreshCar = 2.5;
-distTreshBicycle = 1.0;
-distTreshPedestrian = 1.0;
-numMinDetections = 4;
+distTreshCar = 4.5;
+distTreshBicycle = 4.0;
+distTreshPedestrian = 3.0;
+numMinDetectionsCars = 10;
+numMinDetectionsBicycles = 3;
+numMinDetectionsPedestrians = 3;
 detectedStopCars = {};
 detectedBicyles = {};
 detectedPedestrians = {};
@@ -201,6 +203,7 @@ detectedPedestrians = {};
 StopCars = 0;
 Peds = 0;
 Bikes = 0;
+InPeds = 0;
 countStopCar = true;
 countBicycle = true;
 countPedestrian = true;
@@ -274,7 +277,7 @@ if ~isempty(cameraCar)
             
             % The joint detections should be more than a specified minimum
             % number of detections to be classified as a object
-            if numel(idxs) >= numMinDetections
+            if numel(idxs) >= numMinDetectionsCars
                 StopCars = StopCars + 1;
                 detectedStopCars{StopCars} = sorted_cameraCar(idxs, :);
                 countStopCar = false;
@@ -299,7 +302,7 @@ if ~isempty(cameraBicycle)
         
             idxs = find(ds < distTreshBicycle);
              
-            if numel(idxs) >= numMinDetections
+            if numel(idxs) >= numMinDetectionsBicycles
                 Bikes = Bikes + 1;
                 detectedBicyles{Bikes} = sorted_cameraBicycle(idxs, :);
                 countBicycle = false;
@@ -319,7 +322,7 @@ if ~isempty(cameraPedestrian)
         
             idxs = find(ds < distTreshPedestrian);
              
-            if numel(idxs) >= numMinDetections
+            if numel(idxs) >= numMinDetectionsPedestrians
                 Peds = Peds + 1;
                 detectedPedestrians{Peds} = sorted_cameraPedestrian(idxs, :);
                 countPedestrian = false;
@@ -333,10 +336,8 @@ end
 %% Detect the number of cars in movement
 
 % Start variables of threshold and minimum number of detections to be a object.
-distTreshStopCar = 3;
 distTreshMovCar = 20;
-numMinDetectionsStopCars = 4;
-numMinDetectionsMovCars = 3;
+numMinDetectionsMovCars = 2;
 
 % Start counters 
 MovCars = 0;
@@ -347,34 +348,12 @@ detectedMovCars = {};
 movCars_cameraCar = cameraCar;
 
 % Filter the Car Detections to only have the cars in movement
-% if ~isempty(cameraCar)
-%     % Cycle all camera Detections
-%     if excludeStopCars == true
-%         for i = 1:size(detectedStopCars, 2)
-%             for n = 1:size(detectedStopCars{i}, 1)
-%                 ds = movCars_cameraCar - detectedStopCars{i}(n, :);
-%                 ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
-%         
-%                 idxs = find(ds < distTreshCar);
-%                 
-%                 if numel(idxs) >= numMinDetectionsStopCars
-%                     movCars_cameraCar(idxs, :) = [];
-%                     excludeStopCars = false;
-%                 end
-%             end
-%         end
-%     elseif n == idxs(end)
-%            excludeStopCars = true;
-%     end
-% end
-
-% Filter the Car Detections to only have the cars in movement
 if ~isempty(cameraCar)
     % Cycle all camera Detections
     for i = 1:size(detectedStopCars, 2)
         for n = 1:size(detectedStopCars{i}, 1)
-            carDetection = detectedStopCars{i}(n, 1);
-            idx = find(carDetection == movCars_cameraCar);
+            stopCarDetection = detectedStopCars{i}(n, 1);
+            idx = find(stopCarDetection == movCars_cameraCar);
             movCars_cameraCar(idx, :) = [];
         end
     end
@@ -476,11 +455,14 @@ end
 %% Recognize barriers in RADAR Detections
 
 % Start variables of threshold and minimum number of detections to be a object.
-distTreshBarrier = 20;
+distTreshBarrier = 2;
 distTreshBicycle = 1.5;
 distTreshCar = 4.5;
 distTreshPedestrian = 1;
-numMinDetections = 4;
+numMinDetectionsCars = 4;
+numMinDetectionsBicycles = 4;
+numMinDetectionsPedestrians = 4;
+numMinNoise = 2;
 
 % Start counters 
 barriers = 0;
@@ -488,6 +470,7 @@ countBarriers = true;
 excludeBicycles = true;
 excludeCars = true;
 excludePedestrians = true;
+excludeRadarNoise = true;
 
 barriers_radarDetections = radarDetections;
 
@@ -502,7 +485,7 @@ if ~isempty(cameraCar)
         
                 idxs = find(ds < distTreshCar);
                 
-                if numel(idxs) >= numMinDetections
+                if numel(idxs) >= numMinDetectionsCars
                     barriers_radarDetections(idxs, :) = [];
                     excludeCars = false;
                 end
@@ -523,7 +506,7 @@ if ~isempty(cameraBicycle)
         
                 idxs = find(ds < distTreshBicycle);
                 
-                if numel(idxs) >= numMinDetections
+                if numel(idxs) >= numMinDetectionsBicycles
                     barriers_radarDetections(idxs, :) = [];
                     excludeBicycles = false;
                 end
@@ -544,7 +527,7 @@ if ~isempty(cameraPedestrian)
         
                 idxs = find(ds < distTreshPedestrian);
                 
-                if numel(idxs) >= numMinDetections
+                if numel(idxs) >= numMinDetectionsPedestrians
                     barriers_radarDetections(idxs, :) = [];
                     excludePedestrians = false;
                 end
@@ -554,6 +537,29 @@ if ~isempty(cameraPedestrian)
            excludePedestrians = true;
     end
 end
+
+% if ~isempty(radarDetections)
+%     % Cycle all camera Detections
+%     if excludeRadarNoise == true
+%         for i = 1:size(barriers_radarDetections, 1)
+%             ds = barriers_radarDetections - barriers_radarDetections(n, :);
+%             ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+%             disp(ds)
+%     
+%             idxs = find(ds < distTreshBarrier);
+%             
+%             if numel(idxs) <= numMinNoise
+%                 barriers_radarDetections(idxs, :) = [];
+%                 excludeRadarNoise = false;
+%             end
+%         end
+%     elseif n == idxs(end)
+%            excludeRadarNoise = true;
+%     end
+% end
+
+% Remove noise from RADAR Detections
+barriers_radarDetections = rmoutliers(barriers_radarDetections, 'percentiles', [1 99]);
 
 figure(6)
 plot(PP(:,1), PP(:,2), 'LineWidth', 3)
@@ -581,29 +587,50 @@ plot(barriers_radarDetections(:, 1), barriers_radarDetections(:, 2), 'ro')
 %     end
 % end
 
-beginningFirstBarrier = barriers_radarDetections(1, :);
-ds = PP(:, 1:2) - beginningFirstBarrier;
-ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
 
-[minDs idx_pos] = min(ds);
+begginingFirstBarrier_pos = inf;
+
+for n = 1:size(barriers_radarDetections, 1)
+    ds = PP(:, 1:2) - barriers_radarDetections(n, :);
+    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+    
+    [minDs idx_pos] = min(ds);
+    
+    if idx_pos < begginingFirstBarrier_pos
+        begginingFirstBarrier_pos = idx_pos;
+    end
+end
+
 
 LBarrFirst = 0;
-for n = 2:idx_pos
+for n = 2:beginningFirstBarrier_pos
     ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
     LBarrFirst = LBarrFirst + ds;
 end
 
-endingLastBarrier = barriers_radarDetections(end, :);
-ds = PP(:, 1:2) - endingLastBarrier;
-ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+plot(PP(begginingFirstBarrier_pos, 1), PP(begginingFirstBarrier_pos, 2), 'g*')
 
-[minDs idx_pos] = min(ds);
+
+endingLastBarrier_pos = 0;
+
+for n = 1:size(barriers_radarDetections, 1)
+    ds = PP(:, 1:2) - barriers_radarDetections(n, :);
+    ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+    
+    [minDs idx_pos] = min(ds);
+    
+    if idx_pos > endingLastBarrier_pos
+        endingLastBarrier_pos = idx_pos;
+    end
+end
 
 LBarrLast = 0;
-for n = 2:idx_pos
+for n = 2:endingLastBarrier_pos
     ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
     LBarrLast = LBarrLast + ds;
 end
+
+plot(PP(endingLastBarrier_pos, 1), PP(endingLastBarrier_pos, 2), 'g*')
 
 % %% Lidar detections representation
 % 
@@ -694,6 +721,18 @@ end
 %         view(lidarViewer, segmentedPtCloud.Location, labelColorIndex) %Apresentar o plot
 %     end
 % end
+
+
+%% Save results
+
+results = ['91352', string(Lcar), string(Peds), string(InPeds), string(StopCars), string(MovCars), string(Bikes) ...
+    string(Lped1), string(LStopCar1), string(LBarrFirst), string(LBarrLast)];
+results = join(results, ',');
+file = fopen('TP1_results_91352.txt', 'wt');
+fprintf(file, results);
+fclose(file);
+
+
 
 
 
