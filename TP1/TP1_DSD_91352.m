@@ -1,4 +1,4 @@
-function [allData, scenario, sensors] = scenario_with_errors()
+function [allData, scenario, sensors] = TP1_DSD_91352()
 %scenario_with_errors - Returns sensor detections
 %    allData = scenario_with_errors returns sensor detections in a structure
 %    with time for an internally defined scenario and sensor suite.

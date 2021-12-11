@@ -1,13 +1,18 @@
 %% Assignment 1 - Autonomous Vehicles
 
-clearvars -except allData scenario sensors
-% clear
+% clearvars -except allData scenario sensors
+clear
 close all
 clc
 
 % Load data from scenario
-% [allData, scenario, sensors] = scenario_with_errors();
+[allData, scenario, sensors] = TP1_DSD_91352();
 
+for n=1:numel(allData)
+    allData(n).ActorPoses(2:end)=[];
+end
+
+% load('allData_91352.mat', 'allData')
 
 %% Use INS sensor to get position and velocities
 t = [allData.Time]; %array with sample times
@@ -37,6 +42,7 @@ title('Ego Vehicle Velocity')
 xlabel('t (s)')
 ylabel('Velocity (m/s)')
 
+% Calculate the linear distance traveled by the car
 Lcar = 0;
 for n = 2:size(PP,1)
     ds = norm(PP(n, 1:2) - PP(n-1, 1:2));
@@ -56,6 +62,7 @@ xlabel('X (m)')
 ylabel('Y (m)')
 hold on
 
+% Initialize variables
 radarDetections = [];
 cameraDetections = [];
 cameraCar = [];
@@ -189,9 +196,9 @@ end
 
 %% Count detections pedestrians and bicycles
 % Start variables of threshold and minimum number of detections to be a object.
-distTreshCar = 4.5;
-distTreshBicycle = 4.0;
-distTreshPedestrian = 3.0;
+distTreshCar = 9;
+distTreshBicycle = 9;
+distTreshPedestrian = 4.5;
 numMinDetectionsCars = 10;
 numMinDetectionsBicycles = 3;
 numMinDetectionsPedestrians = 3;
@@ -233,7 +240,7 @@ if ~isempty(cameraBicycle)
 %     sorted_cameraBicycle = cameraBicycle(idx,:);
     sorted_cameraBicycle = sortrows(cameraBicycle,2); % sort Y-values relative to X-values in ascending order
     [~,idu] = unique(sorted_cameraBicycle(:,2)); % get the index of unique Y-values
-    for ii = 2:length(idu)-1
+    for ii = 2:2:length(idu)-1
         
         sorted_cameraBicycle(idu(ii-1):idu(ii)-1,1) = sort(sorted_cameraBicycle(idu(ii-1):idu(ii)-1,1));  % sort X-values 
         % relative to odd indexed unique Y values in ascending order
@@ -337,7 +344,7 @@ end
 
 % Start variables of threshold and minimum number of detections to be a object.
 distTreshMovCar = 20;
-numMinDetectionsMovCars = 2;
+numMinDetectionsMovCars = 1;
 
 % Start counters 
 MovCars = 0;
@@ -462,13 +469,13 @@ plot(PP(firstPedestrian_pos, 1), PP(firstPedestrian_pos, 2), 'r*')
 %% Recognize barriers in RADAR Detections
 
 % Start variables of threshold and minimum number of detections to be a object.
-distTreshBarrier = 2;
-distTreshBicycle = 1.5;
+distTreshBarrier = 2.0;
+distTreshBicycle = 3.5;
 distTreshCar = 4.5;
-distTreshPedestrian = 1;
-numMinDetectionsCars = 4;
-numMinDetectionsBicycles = 4;
-numMinDetectionsPedestrians = 4;
+distTreshPedestrian = 3.0;
+numMinDetectionsCars = 2;
+numMinDetectionsBicycles = 2;
+numMinDetectionsPedestrians = 2;
 numMinNoise = 2;
 
 % Start counters 
@@ -481,21 +488,20 @@ excludeRadarNoise = true;
 
 barriers_radarDetections = radarDetections;
 
+
 % Filter the RADAR detections to have only the Barriers
+% Filter the car detections
 if ~isempty(cameraCar)
-    % Cycle all camera Detections
     if excludeCars == true
-        for i = 1:size(detectedStopCars, 2)
-            for n = 1:size(detectedStopCars{i}, 1)
-                ds = barriers_radarDetections - detectedStopCars{i}(n, :);
-                ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
-        
-                idxs = find(ds < distTreshCar);
-                
-                if numel(idxs) >= numMinDetectionsCars
-                    barriers_radarDetections(idxs, :) = [];
-                    excludeCars = false;
-                end
+        for n = 1:size(sorted_cameraCar, 1)
+            ds = barriers_radarDetections - sorted_cameraCar(n, :);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+    
+            idxs = find(ds < distTreshCar);
+            
+            if numel(idxs) >= numMinDetectionsCars
+                barriers_radarDetections(idxs, :) = [];
+                excludeCars = false;
             end
         end
     elseif n == idxs(end)
@@ -503,20 +509,18 @@ if ~isempty(cameraCar)
     end
 end
 
+% Filter the bicycle detections
 if ~isempty(cameraBicycle)
-    % Cycle all camera Detections
     if excludeBicycles == true
-        for i = 1:size(detectedBicyles, 2)
-            for n = 1:size(detectedBicyles{i}, 1)
-                ds = barriers_radarDetections - detectedBicyles{i}(n, :);
-                ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
-        
-                idxs = find(ds < distTreshBicycle);
-                
-                if numel(idxs) >= numMinDetectionsBicycles
-                    barriers_radarDetections(idxs, :) = [];
-                    excludeBicycles = false;
-                end
+        for n = 1:size(sorted_cameraBicycle, 1)
+            ds = barriers_radarDetections - sorted_cameraBicycle(n, :);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+    
+            idxs = find(ds < distTreshBicycle);
+            
+            if numel(idxs) >= numMinDetectionsBicycles
+                barriers_radarDetections(idxs, :) = [];
+                excludeBicycles = false;
             end
         end
     elseif n == idxs(end)
@@ -524,20 +528,19 @@ if ~isempty(cameraBicycle)
     end
 end
 
+% Filter the Pedestrians detections
 if ~isempty(cameraPedestrian)
     % Cycle all camera Detections
     if excludePedestrians == true
-        for i = 1:size(detectedPedestrians, 2)
-            for n = 1:size(detectedPedestrians{i}, 1)
-                ds = barriers_radarDetections - detectedPedestrians{i}(n, :);
-                ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
-        
-                idxs = find(ds < distTreshPedestrian);
-                
-                if numel(idxs) >= numMinDetectionsPedestrians
-                    barriers_radarDetections(idxs, :) = [];
-                    excludePedestrians = false;
-                end
+        for n = 1:size(sorted_cameraPedestrian, 1)
+            ds = barriers_radarDetections - sorted_cameraPedestrian(n, :);
+            ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
+    
+            idxs = find(ds < distTreshPedestrian);
+            
+            if numel(idxs) >= numMinDetectionsPedestrians
+                barriers_radarDetections(idxs, :) = [];
+                excludePedestrians = false;
             end
         end
     elseif n == idxs(end)
@@ -545,28 +548,11 @@ if ~isempty(cameraPedestrian)
     end
 end
 
-% % Remove noise from RADAR Detections - Option 1
-% if ~isempty(radarDetections)
-%     % Cycle all camera Detections
-%     if excludeRadarNoise == true
-%         for i = 1:size(barriers_radarDetections, 1)
-%             ds = barriers_radarDetections - barriers_radarDetections(n, :);
-%             ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
-%             disp(ds)
-%     
-%             idxs = find(ds < distTreshBarrier);
-%             
-%             if numel(idxs) <= numMinNoise
-%                 barriers_radarDetections(idxs, :) = [];
-%                 excludeRadarNoise = false;
-%             end
-%         end
-%     elseif n == idxs(end)
-%            excludeRadarNoise = true;
-%     end
-% end
 
-% Remove noise from RADAR Detections - Option 1
+% Remove noise from RADAR Detections
+
+barriers_NoNoise_radarDetections = barriers_radarDetections;
+idxs_noise = [];
 if ~isempty(radarDetections)
     % Cycle all barriers RADAR Detections
     for n = 1:size(barriers_radarDetections, 1)
@@ -574,16 +560,15 @@ if ~isempty(radarDetections)
         ds = sqrt(ds(:, 1).^2 + ds(:, 2).^2);
 
         idxs = find(ds < distTreshBarrier);
-        disp(idxs)
         
-        if numel(idxs) == 1
-            barriers_radarDetections(idxs, :) = [];
+        if numel(idxs) <= numMinNoise
+            idxs_noise = [idxs_noise, idxs'];
         end
     end
 end
 
-% % Remove noise from RADAR Detections - Option 2
-% barriers_radarDetections = rmoutliers(barriers_radarDetections, 'percentiles', [1 99]);
+barriers_radarDetections(idxs_noise, :) = [];
+
 
 figure(6)
 plot(PP(:,1), PP(:,2), 'LineWidth', 3)
@@ -596,7 +581,7 @@ ylabel('Y (m)')
 hold on
 plot(barriers_radarDetections(:, 1), barriers_radarDetections(:, 2), 'ro')
 
-% Discover the beggining of the first barrier
+% Discover the beggining of the first barrier to get the linear distance
 beginningFirstBarrier_pos = inf;
 
 for n = 1:size(barriers_radarDetections, 1)
@@ -620,7 +605,7 @@ end
 plot(PP(beginningFirstBarrier_pos, 1), PP(beginningFirstBarrier_pos, 2), 'g*')
 
 
-% Discover the ending of the last barrier
+% Discover the ending of the last barrier to get the linear distance
 endingLastBarrier_pos = 0;
 
 for n = 1:size(barriers_radarDetections, 1)
@@ -641,96 +626,6 @@ for n = 2:endingLastBarrier_pos
 end
 
 plot(PP(endingLastBarrier_pos, 1), PP(endingLastBarrier_pos, 2), 'g*')
-
-% %% Lidar detections representation
-% 
-% % Definir os limites da zona a representar
-% xlimits = [-25 45]; %em metros
-% ylimits = [-25 45];
-% zlimits = [-20 20];
-% lidarViewer = pcplayer(xlimits, ylimits, zlimits); % permite representar um stream de nuvens de pontos 3D
-% 
-% % Definir os labels dos eixos
-% xlabel(lidarViewer.Axes, 'X (m)');
-% ylabel(lidarViewer.Axes, 'Y (m)');
-% zlabel(lidarViewer.Axes, 'Z (m)');
-% 
-% %Definir um colormap
-% colorLabels = [0      0.4470 0.7410;
-%                0.4660 0.6740 0.1880;
-%                0.9290 0.6940 0.1250;
-%                0.6350 0.0780 0.1840];
-% 
-% %Indexar as cores
-% colors.Unlabeled = 1; 
-% colors.Ground = 2;
-% colors.Ego = 3;
-% colors.Obstacle = 4;
-% 
-% vehicleDims = vehicleDimensions(); %4.7m de comprimento, 1.8m de largura, e 1.4m de altura
-% 
-% % Car limits for segmentation
-% tol = 1;
-% limits = tol * [-vehicleDims.Length/2 vehicleDims.Length/2;
-%                 -vehicleDims.Width/2  vehicleDims.Width/2;
-%                 -vehicleDims.Height   0];
-% 
-% %Aplicar o colormap ao eixo
-% colormap(lidarViewer.Axes, colorLabels);
-% 
-% minNumPoints = 50;
-% 
-% % Cycle each time sample to get each object detection
-% for n = 1:numel(allData)
-%     
-%     if ~isempty(allData(n).PointClouds.XLimits)
-%         ptCloud = allData(n).PointClouds;   
-%         
-%         points = struct();
-%         points.EgoPoints = ptCloud.Location(:,:,1) > limits(1,1) ...
-%                            & ptCloud.Location(:,:,1) < limits(1,2) ...
-%                            & ptCloud.Location(:,:,2) > limits(2,1) ...
-%                            & ptCloud.Location(:,:,2) < limits(2,2) ...
-%                            & ptCloud.Location(:,:,3) > limits(3,1) ...
-%                            & ptCloud.Location(:,:,3) < limits(3,2);
-%         
-%         scanSize = size(ptCloud.Location);
-%         scanSize = scanSize(1:2);
-%         
-%         %Criar um matriz que indique a cor a usar para cada ponto 32x1084
-%         colormapValues = ones(scanSize, 'like', ptCloud.Location) * colors.Unlabeled;
-%         
-%         %Aplicar a cor aos EgoPoints
-%         colormapValues(points.EgoPoints) = colors.Ego;
-%         
-%         points.GroundPoints = segmentGroundFromLidarData(ptCloud, 'ElevationAngleDelta', 0.5);
-%         
-%         points.GroundPoints = points.GroundPoints & ~points.EgoPoints; %Use only the points that are from the ground.
-%         % To do this, exclude the points of the car that were already detected.
-%         
-%         %Atualizar a matriz de índices de cor
-%         colormapValues(points.GroundPoints) = colors.Ground;
-%         
-%         % Get points without Ego and Ground points
-%         nonEgoGroundPoints = ~points.EgoPoints & ~points.GroundPoints;
-%         
-%         % Segment original point clouds with nonEgoGroundPoints
-%         ptCloudSegmented = select(ptCloud, nonEgoGroundPoints, 'Output', 'full');
-%         
-%         % Get a mask from origin to a distance of 40 m.
-%         points.ObstaclePoints = findNeighborsInRadius(ptCloudSegmented, [0 0 0], 40);
-%         
-%         % Segment point cloud for each obstacle 
-%         [labels, numClusters] = segmentLidarData(ptCloudSegmented, 1, 180, 'NumClusterPoints', minNumPoints);
-%         
-%         idxValidPoints = find(labels);
-%         labelColorIndex = labels(idxValidPoints);
-%         segmentedPtCloud = select(ptCloudSegmented, idxValidPoints);
-%         
-%         figure(4)
-%         view(lidarViewer, segmentedPtCloud.Location, labelColorIndex) %Apresentar o plot
-%     end
-% end
 
 
 %% Save results
