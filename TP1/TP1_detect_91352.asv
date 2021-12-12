@@ -2,7 +2,6 @@
 % Name: Lucas Rodrigues Dal'Col
 % Número Mecanográfico: 91352
 
-% clearvars -except allData scenario sensors
 clear
 close all
 clc
