@@ -1,14 +1,12 @@
 %% Assignment 1 - Autonomous Vehicles
-% Name: Lucas Rodrigues Dal'Col
-% Número Mecanográfico: 91352
 
-% clearvars -except allData scenario sensors
-clear
+clearvars -except allData scenario sensors
+% clear
 close all
 clc
 
 % Load data from scenario
-[allData, scenario, sensors] = TP1_DSD_91352();
+% [allData, scenario, sensors] = scenarios_with_erros_test2();
 
 for n=1:numel(allData)
     allData(n).ActorPoses(2:end)=[];
@@ -200,8 +198,8 @@ end
 % Start variables of threshold and minimum number of detections to be a object.
 distTreshCar = 9;
 distTreshBicycle = 9;
-distTreshPedestrian = 5;
-numMinDetectionsCars = 15;
+distTreshPedestrian = 4.5;
+numMinDetectionsCars = 14;
 numMinDetectionsBicycles = 3;
 numMinDetectionsPedestrians = 3;
 detectedStopCars = {};
