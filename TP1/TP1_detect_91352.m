@@ -189,7 +189,7 @@ if ~isempty(cameraPedestrian)
 end
 
 
-%% Count detections pedestrians and bicycles
+%% Count detections stopped cars, pedestrians and bicycles
 % Start variables of threshold and minimum number of detections to be a object.
 distTreshCar = 9;
 distTreshBicycle = 9;
