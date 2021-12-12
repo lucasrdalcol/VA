@@ -2,19 +2,12 @@
 % Name: Lucas Rodrigues Dal'Col
 % Número Mecanográfico: 91352
 
-% clearvars -except allData scenario sensors
 clear
 close all
 clc
 
 % Load data from scenario
-[allData, scenario, sensors] = TP1_DSD_91352();
-
-for n=1:numel(allData)
-    allData(n).ActorPoses(2:end)=[];
-end
-
-% load('allData_91352.mat', 'allData')
+load('allData_91352.mat', 'allData')
 
 %% Use INS sensor to get position and velocities
 t = [allData.Time]; %array with sample times
