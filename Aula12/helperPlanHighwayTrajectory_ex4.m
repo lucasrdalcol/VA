@@ -1,9 +1,9 @@
-function [optimalTrajectory, trajectoryList] = helperPlanHighwayTrajectory2(capList, curActorState, egoState)
+function [optimalTrajectory, trajectoryList] = helperPlanHighwayTrajectory_ex4(capList, curActorState, egoState)
 
 % Define terminal state parameters
 refPath = helperGetReferencePath;
 laneWidth = 3.6;
-speedLimit = 11;
+speedLimit = 38;
 timeHorizons = 1:5;
 safetyGap = 10;
 timResolution = 0.1;
@@ -105,7 +105,7 @@ function laneNum = exampleHelperPredictLane(frenetState, laneWidth, dt)
 %       2) Constant change in lateral acceleration for two control sections
 %   	3) Terminal lateral velocity = 0
 %       4) Terminal lateral acceleration = 0
-%       5) Scenario occurs on a 4-lane highway with fixed lane width, LANEWIDTH
+%       5) Scenario occurs on a 2-lane highway with fixed lane width, LANEWIDTH
 %
 %           NOTE: When DT is zero, no motion model assumptions are applied.
 %
@@ -113,13 +113,13 @@ function laneNum = exampleHelperPredictLane(frenetState, laneWidth, dt)
 
 narginchk(3,3);
 
-laneBounds = [inf (2:-1:-2)*laneWidth -inf];
+laneBounds = [inf (1:-1:-1)*laneWidth -inf];
 laneNum = zeros(numel(dt),1);
 
 for i = 1:numel(dt)
     if dt(i) == 0
         dLaneEgo = laneBounds-frenetState(4);
-        laneNum(i) = min(find(dLaneEgo(2:(end-1)) >= 0 & dLaneEgo(3:(end)) < 0,1),4);
+        laneNum(i) = min(find(dLaneEgo(2:(end-1)) >= 0 & dLaneEgo(3:(end)) < 0,1), 1);
     else
         % Retrieve current velocity/acceleration/time
         t  = dt(i);
@@ -153,7 +153,7 @@ for i = 1:numel(dt)
         dLaneEgo = laneBounds-(frenetState(4)+Ldiff);
         
         % Determine future lane
-        idx = min(find(dLaneEgo(2:(end-1)) >= 0 & dLaneEgo(3:(end)) < 0,1),4);
+        idx = find(dLaneEgo(2:(end-1)) >= 0 & dLaneEgo(3:(end)) < 0,1);
         if ~isempty(idx)
             laneNum(i) = idx;
         else
@@ -336,7 +336,7 @@ frenetState = global2frenet(refPath, egoState);
 futureLane = exampleHelperPredictLane(frenetState, laneWidth, dt);
 
 % Convert future lanes to lateral offsets
-lateralOffsets = (2-futureLane+.5)*laneWidth;
+lateralOffsets = (1-futureLane+.5)*laneWidth;
 
 % Return terminal states
 terminalStates      = zeros(numel(dt),6);
@@ -359,7 +359,7 @@ function [terminalStates, times] = exampleHelperBasicLaneChange(refPath, laneWid
 %
 %   Once in Frenet coordinates, exampleHelperPredictLane returns the current
 %   lane, and the centers of the adjacent lanes are then calculated relative to
-%   REFPATH assuming a fixed LANEWIDTH and 4-lane road.
+%   REFPATH assuming a fixed LANEWIDTH and 2-lane road.
 %
 %   The function returns TERMINALSTATES, an N-by-6 matrix where each row
 %   is a Frenet state defined as follows: [NaN dS_cur 0 L_lane 0 0], where
@@ -384,7 +384,7 @@ else
     validLanes = adjacentLanes > 0 & adjacentLanes <= 4;
 
     % Calculate lateral deviation for adjacent lanes
-    lateralOffset = (2-adjacentLanes(validLanes)+.5)*laneWidth;
+    lateralOffset = (1-adjacentLanes(validLanes)+.5)*laneWidth;
     numLane = nnz(validLanes);
 
     % Calculate terminal states
