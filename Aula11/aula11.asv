@@ -436,8 +436,7 @@ egoGeom.Geometry.FixedTransform(1,end) = -carLen*rearAxleRatio; % in meters
 updateEgoGeometry(capList,egoID,egoGeom);
 
 actorID = (1:5)';
-[actorID, actorGeom] = obstacleGeometry(capList,actorID);
-
+actorGeom = repelem(egoGeom,5,1);
 actorGeom(1).Geometry.Length = carLen*1.5; % in meters
 actorGeom(1).Geometry.FixedTransform(1,end) = -actorGeom(1).Geometry.Length*rearAxleRatio; % in meters
 actorGeom = repmat(actorGeom(1),5,1);
