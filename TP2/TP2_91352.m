@@ -10,7 +10,7 @@ close all
 clc
 
 % Load driving scenario
-[allData, scenario, sensors] = TP2_Cenario_8();
+[allData, scenario, sensors] = TP2_Cenario_7();
 egoVehicle = scenario.Actors(1);
 
 scenario.SampleTime = 0.1;
