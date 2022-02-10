@@ -248,7 +248,7 @@ timeCost = times*timeWeight;
 % Calculate terminal speed vs desired speed cost
 speedCost = abs(terminalStates(:,2)-speedLimit)*speedWeight;
 
-% Calculate if on right lane
+% Calculate keep right lane cost
 rightLaneDeviation = abs(laneCenters(3)-terminalStates(:,4));
 rightLaneCost = min(rightLaneDeviation,[],2)*rightLaneWeight;
 

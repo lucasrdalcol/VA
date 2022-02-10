@@ -3,7 +3,9 @@ clear
 close all
 clc
 
-%% Exercise 1
+%% TP2 - Condução Autónoma em Ambiente Simulado - VA
+% Nome: Lucas Rodrigues Dal'Col
+% Número mecanográfico: 91352
 
 clear
 close all
@@ -81,7 +83,6 @@ while advance(scenario)
         lastOptimalTrajectory = optimalTrajectory;
     end
 
-    
     % Visualize the results
     display(scenario, egoVehicle, sensors, detections, tracks, capList, trajectoryList);
     
