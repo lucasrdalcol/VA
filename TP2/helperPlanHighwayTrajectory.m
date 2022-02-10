@@ -5,7 +5,7 @@ refPath = helperGetReferencePath;
 laneWidth = 3.6;
 speedLimit = 30;
 timeHorizons = 1:5;
-safetyGap = 20;
+safetyGap = 15;
 timResolution = 0.1;
 collisionCheckResolution = 5;
 
@@ -13,7 +13,7 @@ collisionCheckResolution = 5;
 latDevWeight    =  1;
 timeWeight      = -1;
 speedWeight     =  1;
-rightLaneWeight =  1.25;
+rightLaneWeight =  1.75;
 
 % Define kinematic parameters
 maxAcceleration =  15; % in meters/second^2
@@ -168,8 +168,12 @@ laneNum = zeros(numel(dt),1);
 
 for i = 1:numel(dt)
     if dt(i) == 0
-        dLaneEgo = laneBounds-frenetState(4);
-        laneNum(i) = find(dLaneEgo(2:(end-1)) >= 0 & dLaneEgo(3:(end)) < 0,1);
+        try
+            dLaneEgo = laneBounds-frenetState(4);
+            laneNum(i) = min(find(dLaneEgo(2:(end-1)) >= 0 & dLaneEgo(3:(end)) < 0,1), 2);
+        catch
+            laneNum(i) = 2;
+        end
     else
         % Retrieve current velocity/acceleration/time
         t  = dt(i);

@@ -10,7 +10,9 @@ close all
 clc
 
 % Load driving scenario
-[allData, scenario, sensors] = TP2_Cenario_7();
+[~, scenario, ~] = TP2_Cenario_9();
+[sensors, numSensors] = createSensors(scenario);
+
 egoVehicle = scenario.Actors(1);
 
 scenario.SampleTime = 0.1;
@@ -23,15 +25,6 @@ rearAxleRatio = .25;
 
 % Define road dimensions
 laneWidth   = carWidth*2; % in meters
-
-% % Initial state of the ego vehicle
-% waypoints = [-43.7   52.9;
-%               13.7   40.1;
-%               57.1   14.5;
-%               42.3  -63;
-%               115.9 -120.8;
-%               151   -131.2];
-% refPath = referencePathFrenet(waypoints);
 
 refPath = helperGetReferencePath;
 egoState = frenet2global(refPath,[0 0 0 -0.5*laneWidth 0 0]);
@@ -57,7 +50,7 @@ capList.MaxNumSteps = 1+floor(maxTimeHorizon/scenario.SampleTime);
 % Initialize the tracker
 tracker = trackerJPDA('FilterInitializationFcn',@helperInitRefPathFilter,...
 'AssignmentThreshold',[275 inf],...
-'ConfirmationThreshold',[10 10],...
+'ConfirmationThreshold',[10 11],...
 'DeletionThreshold',[5 5]);
 
 % Create display for visualizing results

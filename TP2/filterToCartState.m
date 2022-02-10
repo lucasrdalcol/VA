@@ -12,7 +12,12 @@ function cartState = filterToCartState(filterState)
     frenetState = [s;ds;dds;d;ddbyds;dd2ds2];
     % Convert to global state
     refPath = helperGetReferencePath();
-    globalState = frenet2global(refPath,frenetState')';
+    try
+        globalState = frenet2global(refPath,frenetState')';
+    catch
+        frenetState(1) = 0;
+        globalState = frenet2global(refPath,frenetState')';
+    end
     % Convert to cartesian state
     x = globalState(1,:);
     y = globalState(2,:);
