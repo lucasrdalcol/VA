@@ -90,7 +90,10 @@ for i = 1:numel(trajectoryList)
     trajectoryList(i).IsValid = isValid(i);
 end
 
+% Apply stop trajectory when there is no optimal trajectory available
 if numel(optimalTrajectory) == 0
+    disp('Nenhuma trajetória possível, vai ser aplicada uma trajetória de paragem!')
+
     % Generate cruise control states.
     [termStatesST,timesST] = stopTrajectories(...
     refPath,laneWidth,egoState,timeHorizons);
@@ -404,6 +407,7 @@ terminalStates(:,4) = lateralOffsets;
 times = dt(:);
 end
 
+% Compute trajectory to stop
 function [terminalStates, times] = stopTrajectories(refPath, laneWidth, egoState, dt)
 %exampleHelperBasicCruiseControl Generates terminal states for cruise control behavior.
 %

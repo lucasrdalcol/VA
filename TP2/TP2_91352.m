@@ -1,8 +1,3 @@
-%%
-clear
-close all
-clc
-
 %% TP2 - Condução Autónoma em Ambiente Simulado - VA
 % Nome: Lucas Rodrigues Dal'Col
 % Número mecanográfico: 91352
@@ -11,8 +6,8 @@ clear
 close all
 clc
 
-% Load driving scenario
-[~, scenario, ~] = TP2_Cenario_9();
+% Load driving scenario and sensors
+[~, scenario, ~] = TP2_Cenario_1();
 [sensors, numSensors] = createSensors(scenario);
 
 egoVehicle = scenario.Actors(1);
@@ -28,6 +23,7 @@ rearAxleRatio = .25;
 % Define road dimensions
 laneWidth   = carWidth*2; % in meters
 
+% Define initial position of the car according to the reference path
 refPath = helperGetReferencePath;
 egoState = frenet2global(refPath,[0 0 0 -0.5*laneWidth 0 0]);
 moveEgoToState(egoVehicle, egoState);
@@ -35,8 +31,8 @@ moveEgoToState(egoVehicle, egoState);
 % Construct Dynamic Collision Checker 
 capList = dynamicCapsuleList;
 
+% Create capsules for the ego car
 [egoID, egoGeom] = egoGeometry(capList,egoID);
-% Inflate to allow uncertainty and safety gaps
 egoGeom.Geometry.Length = 2*carLen; % in meters
 egoGeom.Geometry.Radius = carWidth/2; % in meters
 egoGeom.Geometry.FixedTransform(1,end) = -2*carLen*rearAxleRatio; % in meters
@@ -58,12 +54,13 @@ tracker = trackerJPDA('FilterInitializationFcn',@helperInitRefPathFilter,...
 % Create display for visualizing results
 display = TrackingAndPlanningDisplay;
 
+% Run scenario simulation
 tic;
 while advance(scenario)
     % Current time
     time = scenario.SimulationTime;
 
-    % Obter as deteções
+    % Obtain detections
     detections = helperGenerateDetections(sensors, egoVehicle, time); %Pre-processamento de medições para compatibilização e parametrização de erros
 
     tracks = tracker(detections, time);
@@ -74,7 +71,7 @@ while advance(scenario)
         predictedTracks(:,i+1) = tracker.predictTracksToTime('confirmed',timesteps(i));
     end
     
-    % Planear a trajetória
+    % Plan the trajectory
     currActorState = updateCapsuleList(capList, predictedTracks, @stateToPoseFrenet);
 
     [optimalTrajectory, trajectoryList] = helperPlanHighwayTrajectory(capList,currActorState, egoState); %Último exercicio da aula anterior
@@ -86,7 +83,7 @@ while advance(scenario)
     % Visualize the results
     display(scenario, egoVehicle, sensors, detections, tracks, capList, trajectoryList);
     
-    % Mover o veiculo para a posição atual
+    % Move the vehicle to the current position
     egoState = lastOptimalTrajectory(2,:);
     moveEgoToState(egoVehicle,egoState);
 end
